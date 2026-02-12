@@ -184,7 +184,8 @@ export default function CreateEventPage() {
         ? data.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
         : [];
 
-      await eventService.createEvent({
+      // Prepare event data
+      const eventData = {
         title: data.title,
         description: data.description,
         category: data.category,
@@ -199,7 +200,14 @@ export default function CreateEventPage() {
         tags: tags,
         hasVirtualTickets: data.hasVirtualTickets,
         imageFile: imageFile,
-      });
+      };
+
+      // Create event with all required arguments
+      await eventService.createEvent(
+        eventData,
+        user.uid,
+        user.displayName || user.email || 'Unknown Organizer'
+      );
 
       toast.success('Event submitted for review!');
       router.push('/organize');
