@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { AuthProvider } from "@/lib/contexts/AuthContext";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
@@ -16,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tikiti - Event Ticketing",
-  description: "Event ticketing made simple",
+  title: "Tikiti - Safe, Social, Hybrid Events",
+  description: "Kenya's #1 event ticketing platform",
 };
 
 export default function RootLayout({
@@ -31,9 +33,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Navbar />
-          {children}
-          <Footer />
+          <AuthProvider>
+            <Navbar />
+            {children}
+            <Footer />
+            <Toaster position="top-right" richColors />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
