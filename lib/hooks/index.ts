@@ -1,2 +1,3 @@
 // Custom hooks
-export {};
+export * from './useEvents';
+export * from './useFavorites';

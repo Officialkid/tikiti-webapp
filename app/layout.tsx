@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
+import { CartProvider } from "@/lib/contexts/CartContext";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
@@ -34,10 +35,12 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
-            <Navbar />
-            {children}
-            <Footer />
-            <Toaster position="top-right" richColors />
+            <CartProvider>
+              <Navbar />
+              {children}
+              <Footer />
+              <Toaster position="top-right" richColors />
+            </CartProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
