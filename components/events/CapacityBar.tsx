@@ -1,43 +1,73 @@
-interface CapacityBarProps {
-  current: number;
+'use client';
+
+import { useEffect, useState } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { motion } from 'framer-motion';
+
+interface Props {
+  eventId: string;
+  initialCurrent: number;
   total: number;
+  showDetails?: boolean;
 }
 
-export default function CapacityBar({ current, total }: CapacityBarProps) {
-  const percentage = (current / total) * 100;
-  
-  const getColor = () => {
-    if (percentage >= 90) return 'bg-red-500';
-    if (percentage >= 70) return 'bg-orange-500';
-    return 'bg-green-500';
-  };
+export default function CapacityBar({
+  eventId, initialCurrent, total, showDetails = true
+}: Props) {
+  const [current, setCurrent] = useState(initialCurrent);
 
-  const getTextColor = () => {
-    if (percentage >= 90) return 'text-red-500';
-    if (percentage >= 70) return 'text-orange-500';
-    return 'text-green-500';
-  };
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (!db) return;
+    const unsub = onSnapshot(doc(db, 'events', eventId), (snap) => {
+      if (snap.exists()) {
+        setCurrent(snap.data().currentCapacity || 0);
+      }
+    });
+    return () => unsub();
+  }, [eventId]);
+
+  const pct = Math.min((current / total) * 100, 100);
+  const remaining = total - current;
+
+  const color =
+    pct >= 90 ? { bar: 'bg-red-500', text: 'text-red-600', label: 'Almost full!' } :
+    pct >= 70 ? { bar: 'bg-orange-500', text: 'text-orange-600', label: 'Filling up' } :
+    { bar: 'bg-green-500', text: 'text-green-600', label: 'Available' };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className={`text-sm font-bold ${getTextColor()}`}>
-          {current.toLocaleString()} / {total.toLocaleString()}
-        </span>
-        <span className={`text-xs font-semibold ${getTextColor()}`}>
-          {Math.round(percentage)}%
-        </span>
-      </div>
-      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-        <div
-          className={`h-full ${getColor()} transition-all duration-500 rounded-full`}
-          style={{ width: `${Math.min(percentage, 100)}%` }}
+    <div className="w-full">
+      {/* Bar */}
+      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-1.5">
+        <motion.div
+          className={`h-full rounded-full ${color.bar}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
         />
       </div>
-      {percentage >= 90 && (
-        <p className="text-xs text-red-500 font-medium mt-1">
-          Almost Full! Limited spots remaining
-        </p>
+
+      {showDetails && (
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-semibold ${color.text}`}>
+            {color.label}
+          </span>
+          <span className="text-xs text-gray-500">
+            {remaining > 0 ? `${remaining.toLocaleString()} spots left` : 'Sold out'}
+          </span>
+        </div>
+      )}
+
+      {/* Alert banner at 85%+ */}
+      {pct >= 85 && pct < 100 && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mt-2 text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2 font-medium"
+        >
+          ⚠️ This event is almost sold out. Grab your ticket now!
+        </motion.div>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { HeartIcon, MapPinIcon, CalendarIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid';
@@ -16,7 +16,7 @@ interface EventCardProps {
 }
 
 export default function EventCard({ event, variant = 'grid' }: EventCardProps) {
-  const { addItem, items } = useCart();
+  const { addToCart, isInCart } = useCart();
   const { isFavorited, toggleFavorite } = useFavorites();
 
   // 3D tilt effect (for featured cards)
@@ -50,20 +50,12 @@ export default function EventCard({ event, variant = 'grid' }: EventCardProps) {
   const cheapestTicket = event.ticketTypes.find((t) => t.price === minPrice);
 
   // Check if event is in cart
-  const isInCart = items.some((item) => item.eventId === event.eventId);
+  const inCart = isInCart(event.eventId);
 
   // Add to cart handler
   const handleAddToCart = () => {
-    if (!cheapestTicket || isInCart) return;
-    
-    addItem({
-      eventId: event.eventId,
-      eventTitle: event.title,
-      ticketType: cheapestTicket.type,
-      price: cheapestTicket.price,
-      quantity: 1,
-      imageUrl: event.imageUrl,
-    });
+    if (!cheapestTicket || inCart) return;
+    addToCart(event, cheapestTicket, 1, false);
   };
 
   // Capacity percentage
@@ -75,6 +67,7 @@ export default function EventCard({ event, variant = 'grid' }: EventCardProps) {
 
   return (
     <motion.div
+      data-testid="event-card"
       style={variant === 'featured' ? { rotateX, rotateY } : {}}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
@@ -87,10 +80,12 @@ export default function EventCard({ event, variant = 'grid' }: EventCardProps) {
       <Link href={`/events/${event.eventId}`} className="block">
         <div className="relative h-48 overflow-hidden">
           {event.imageUrl ? (
-            <img
+            <Image
               src={event.imageUrl}
               alt={event.title}
-              className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+              fill
+              className="object-cover hover:scale-110 transition-transform duration-500"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center text-white text-5xl">
@@ -173,15 +168,15 @@ export default function EventCard({ event, variant = 'grid' }: EventCardProps) {
                 e.preventDefault();
                 handleAddToCart();
               }}
-              disabled={isInCart}
+              disabled={inCart}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                isInCart
+                inCart
                   ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 cursor-default'
                   : 'bg-primary-600 text-white hover:bg-primary-700 active:scale-95'
               }`}
             >
               <ShoppingCartIcon className="h-4 w-4" />
-              {isInCart ? 'In Cart' : 'Add'}
+              {inCart ? 'In Cart' : 'Add'}
             </button>
           </div>
         </div>

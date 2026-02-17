@@ -12,6 +12,7 @@ export const createEventSchema = z.object({
   city: z.string().min(2, 'City required'),
   venueCapacity: z.number().min(10, 'Minimum 10 capacity').max(100000),
   hasVirtualTickets: z.boolean(),
+  isPublic: z.boolean(),
   ticketTypes: z.array(z.object({
     type: z.enum(['Regular', 'VIP', 'VVIP', 'Gold', 'Platinum']),
     price: z.number().min(0, 'Price cannot be negative'),

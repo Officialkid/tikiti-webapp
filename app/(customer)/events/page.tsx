@@ -9,7 +9,9 @@ import { useEvents } from '@/lib/hooks/useEvents';
 import { EventFilters } from '@/types/event';
 
 export default function EventsPage() {
-  const [filters, setFilters] = useState<EventFilters>({});
+  const [filters, setFilters] = useState<EventFilters>({
+    showPublicOnly: true, // Only show public events on browse page
+  });
 
   const { events, loading, error, hasMore, loadMore } = useEvents(filters);
 

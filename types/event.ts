@@ -52,6 +52,7 @@ export interface TikitiEvent {
   status: EventStatus;
   streamUrl?: string;
   hasVirtualTickets: boolean;
+  isPublic: boolean;
   verified: boolean;
   featured: boolean;
   attendeeCount: number;
@@ -68,6 +69,8 @@ export interface EventFilters {
   priceMin?: number;
   priceMax?: number;
   hasVirtualTickets?: boolean;
+  showPublicOnly?: boolean;
+  isFree?: boolean;
   searchQuery?: string;
 }
 
@@ -82,5 +85,6 @@ export interface CreateEventData {
   ticketTypes: Omit<TicketType, 'sold'>[];
   tags: string[];
   hasVirtualTickets: boolean;
+  isPublic: boolean;
   imageFile?: File;
 }

@@ -13,6 +13,7 @@ import {
   increment,
   startAfter,
   QueryDocumentSnapshot,
+  QueryConstraint,
 } from 'firebase/firestore';
 import {
   ref,
@@ -35,7 +36,7 @@ export const eventService = {
 
     try {
       const eventsRef = collection(db, 'events');
-      const constraints: any[] = [
+      const constraints: QueryConstraint[] = [
         where('status', '!=', 'cancelled'),
         orderBy('status'),
         orderBy('dateTime', 'asc'),
@@ -49,6 +50,11 @@ export const eventService = {
         constraints.push(where('hasVirtualTickets', '==', true));
       }
 
+      // Filter for public events only (for browse page)
+      if (filters?.showPublicOnly) {
+        constraints.push(where('isPublic', '==', true));
+      }
+
       constraints.push(limit(pageSize));
 
       if (lastDoc) {
@@ -58,7 +64,7 @@ export const eventService = {
       const q = query(eventsRef, ...constraints);
       const snapshot = await getDocs(q);
 
-      const events = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
+      let events = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
         eventId: doc.id,
         ...doc.data(),
         dateTime: doc.data().dateTime.toDate(),
@@ -66,6 +72,13 @@ export const eventService = {
         createdAt: doc.data().createdAt.toDate(),
         updatedAt: doc.data().updatedAt.toDate(),
       })) as TikitiEvent[];
+
+      // Client-side filter for free events (has at least one ticket with price 0)
+      if (filters?.isFree) {
+        events = events.filter(event => 
+          event.ticketTypes.some(ticket => ticket.price === 0)
+        );
+      }
 
       const lastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
 
@@ -203,6 +216,7 @@ export const eventService = {
         tags: data.tags,
         status: 'upcoming',
         hasVirtualTickets: data.hasVirtualTickets,
+        isPublic: data.isPublic,
         verified: false, // Requires admin approval
         featured: false,
         attendeeCount: 0,
@@ -227,7 +241,7 @@ export const eventService = {
     if (!db) throw new Error('Firestore not initialized');
 
     try {
-      const updates: any = {
+      const updates: Record<string, unknown> = {
         ...data,
         updatedAt: Timestamp.now(),
       };

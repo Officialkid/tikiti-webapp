@@ -37,7 +37,7 @@ export default function EventFiltersBar({ filters, onChange }: EventFiltersBarPr
     max: filters.priceMax || 10000,
   });
 
-  const updateFilter = (key: keyof EventFilters, value: any) => {
+  const updateFilter = (key: keyof EventFilters, value: string | number | boolean | undefined) => {
     onChange({ ...filters, [key]: value });
   };
 

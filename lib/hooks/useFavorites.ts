@@ -1,52 +1,40 @@
-import { useState, useEffect } from 'react';
+'use client';
+
+import { useState } from 'react';
+import { toast } from 'sonner';
+
+const KEY = 'tikiti_favorites';
 
 export function useFavorites() {
-  const [favorites, setFavorites] = useState<string[]>([]);
-
-  // Load favorites from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('tikiti-favorites');
-    if (saved) {
-      try {
-        setFavorites(JSON.parse(saved));
-      } catch (error) {
-        console.error('Error loading favorites:', error);
-      }
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const s = localStorage.getItem(KEY);
+      return s ? JSON.parse(s) : [];
+    } catch {
+      localStorage.removeItem(KEY);
+      return [];
     }
-  }, []);
-
-  // Save favorites to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('tikiti-favorites', JSON.stringify(favorites));
-  }, [favorites]);
+  });
 
   const toggleFavorite = (eventId: string) => {
-    setFavorites((prev) =>
-      prev.includes(eventId)
+    setFavorites((prev) => {
+      const isRemoving = prev.includes(eventId);
+      const updated = isRemoving
         ? prev.filter((id) => id !== eventId)
-        : [...prev, eventId]
-    );
+        : [...prev, eventId];
+      localStorage.setItem(KEY, JSON.stringify(updated));
+      
+      if (isRemoving) {
+        toast.info('Removed from favorites');
+      } else {
+        toast.success('Saved to favorites ❤️');
+      }
+      
+      return updated;
+    });
   };
 
-  const isFavorited = (eventId: string) => {
-    return favorites.includes(eventId);
-  };
-
-  const addFavorite = (eventId: string) => {
-    if (!favorites.includes(eventId)) {
-      setFavorites((prev) => [...prev, eventId]);
-    }
-  };
-
-  const removeFavorite = (eventId: string) => {
-    setFavorites((prev) => prev.filter((id) => id !== eventId));
-  };
-
-  return {
-    favorites,
-    toggleFavorite,
-    isFavorited,
-    addFavorite,
-    removeFavorite,
-  };
+  const isFavorited = (eventId: string) => favorites.includes(eventId);
+  return { favorites, toggleFavorite, isFavorited };
 }

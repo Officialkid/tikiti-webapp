@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 import { TikitiEvent } from '@/types/event';
 import { eventService } from '@/lib/services/eventService';
 import { format } from 'date-fns';
@@ -92,7 +93,7 @@ export default function FeaturedEventsSection() {
             Featured Events
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Don't miss out on these trending events
+            Don&apos;t miss out on these trending events
           </p>
         </motion.div>
 
@@ -111,10 +112,12 @@ export default function FeaturedEventsSection() {
                   {/* Image */}
                   <div className="relative h-48 bg-gradient-to-br from-primary-400 to-secondary-400 overflow-hidden">
                     {event.imageUrl ? (
-                      <img
+                      <Image
                         src={event.imageUrl}
                         alt={event.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        fill
+                        className="object-cover group-hover:scale-110 transition-transform duration-300"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-white text-4xl">

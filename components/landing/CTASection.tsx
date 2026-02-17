@@ -134,7 +134,7 @@ export default function CTASection() {
               ))}
             </div>
             <p className="text-sm opacity-90">
-              <span className="font-bold">10,000+</span> students trust Tikiti
+              <span className="font-bold">10,000+</span> people trust Tikiti Store
             </p>
           </motion.div>
         </motion.div>

@@ -47,7 +47,7 @@ export default function HowItWorksSection() {
             How It Works
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            From discovery to entry — we've made it simple
+            From discovery to entry — we&apos;ve made it simple
           </p>
         </motion.div>
 

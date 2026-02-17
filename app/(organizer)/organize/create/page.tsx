@@ -67,6 +67,7 @@ export default function CreateEventPage() {
     defaultValues: {
       category: 'campus',
       hasVirtualTickets: false,
+      isPublic: true,
       ticketTypes: [{ type: 'Regular', price: 0, quantity: 1, description: '' }],
       tags: '',
     },
@@ -134,6 +135,7 @@ export default function CreateEventPage() {
           'city',
           'venueCapacity',
           'hasVirtualTickets',
+          'isPublic',
         ];
         break;
       case 3:
@@ -199,6 +201,7 @@ export default function CreateEventPage() {
         ticketTypes: data.ticketTypes,
         tags: tags,
         hasVirtualTickets: data.hasVirtualTickets,
+        isPublic: data.isPublic,
         imageFile: imageFile,
       };
 
@@ -512,9 +515,25 @@ export default function CreateEventPage() {
                     />
                     <label
                       htmlFor="hasVirtualTickets"
-                      className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                      className="text-sm font-medium text-gray-700"
                     >
                       This event has virtual tickets (online streaming)
+                    </label>
+                  </div>
+
+                  {/* Event Visibility */}
+                  <div className="flex items-center gap-3">
+                    <input
+                      {...register('isPublic')}
+                      type="checkbox"
+                      id="isPublic"
+                      className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                    />
+                    <label
+                      htmlFor="isPublic"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Make this event public (visible on Browse Events page)
                     </label>
                   </div>
                 </motion.div>

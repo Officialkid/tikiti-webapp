@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { TikitiEvent, TicketType } from '@/types/event';
-import { useCart } from '@/lib/contexts/CartContext';
 import { useFavorites } from '@/lib/hooks/useFavorites';
 import { format } from 'date-fns';
 import {
@@ -29,35 +28,19 @@ interface EventDetailsClientProps {
 }
 
 export default function EventDetailsClient({ event }: EventDetailsClientProps) {
-  const { addItem } = useCart();
   const { favorites, toggleFavorite } = useFavorites();
   const isFavorited = favorites.includes(event.eventId);
 
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
   const [quantity, setQuantity] = useState(1);
 
-  const handleAddToCart = () => {
-    if (!selectedTicket) return;
-
-    addItem({
-      eventId: event.eventId,
-      eventTitle: event.title,
-      ticketType: selectedTicket.type,
-      price: selectedTicket.price,
-      quantity: quantity,
-      imageUrl: event.imageUrl || '',
-    });
-
-    toast.success(`${quantity} ticket(s) added to cart!`);
-  };
-
   const handleDownloadCalendar = () => {
     const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//Tikiti//Event Calendar//EN',
+      'PRODID:-//Tikiti Store//Event Calendar//EN',
       'BEGIN:VEVENT',
-      `UID:${event.eventId}@tikiti.com`,
+      `UID:${event.eventId}@tikiti-store.com`,
       `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
       `DTSTART:${event.dateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
       `DTEND:${event.endDateTime?.toISOString().replace(/[-:]/g, '').split('.')[0] || event.dateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
@@ -290,8 +273,10 @@ export default function EventDetailsClient({ event }: EventDetailsClientProps) {
                   </h2>
                 </div>
                 <CapacityBar
-                  current={event.currentCapacity || 0}
+                  eventId={event.eventId}
+                  initialCurrent={event.currentCapacity || 0}
                   total={event.venueCapacity}
+                  showDetails={true}
                 />
               </motion.div>
 
@@ -341,7 +326,6 @@ export default function EventDetailsClient({ event }: EventDetailsClientProps) {
                 quantity={quantity}
                 onSelectTicket={setSelectedTicket}
                 onQuantityChange={setQuantity}
-                onAddToCart={handleAddToCart}
               />
             </div>
           </div>

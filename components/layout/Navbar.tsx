@@ -10,13 +10,11 @@ import {
   HeartIcon,
   Bars3Icon,
   XMarkIcon,
-  SunIcon,
-  MoonIcon,
   TicketIcon,
   ChartBarIcon,
+  QrCodeIcon,
   ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
-import { useTheme } from 'next-themes';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useCart } from '@/lib/contexts/CartContext';
 import { eventService } from '@/lib/services/eventService';
@@ -26,7 +24,6 @@ export default function Navbar() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { itemCount } = useCart();
-  const { theme, setTheme } = useTheme();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -83,14 +80,14 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
+    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
             <span className="text-2xl font-black bg-gradient-to-r from-primary-600 to-secondary-500 bg-clip-text text-transparent">
-              TIKITI
+              TIKITI STORE
             </span>
           </Link>
 
@@ -98,13 +95,13 @@ export default function Navbar() {
           <div className="hidden md:flex items-center space-x-8">
             <Link
               href="/events"
-              className="text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors"
+              className="text-gray-700 hover:text-primary-600 font-medium transition-colors"
             >
               Browse Events
             </Link>
             <Link
               href="/about"
-              className="text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors"
+              className="text-gray-700 hover:text-primary-600 font-medium transition-colors"
             >
               About
             </Link>
@@ -136,7 +133,7 @@ export default function Navbar() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search events..."
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none text-sm"
+                      className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:ring-primary-500 focus:outline-none text-sm"
                     />
 
                     {/* Search Results Dropdown */}
@@ -144,7 +141,7 @@ export default function Navbar() {
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+                        className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden"
                       >
                         {searching ? (
                           <div className="p-4 text-center text-gray-500 text-sm">
@@ -160,7 +157,7 @@ export default function Navbar() {
                                 setSearchQuery('');
                                 setSearchResults([]);
                               }}
-                              className="flex items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                              className="flex items-center p-3 hover:bg-gray-50 transition-colors"
                             >
                               <img
                                 src={event.imageUrl}
@@ -168,7 +165,7 @@ export default function Navbar() {
                                 className="w-10 h-10 rounded-md object-cover mr-3"
                               />
                               <div>
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                <div className="text-sm font-medium text-gray-900">
                                   {event.title}
                                 </div>
                                 <div className="text-xs text-gray-500">
@@ -201,31 +198,20 @@ export default function Navbar() {
             >
               <ShoppingCartIcon className="h-5 w-5" />
               {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-secondary-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                <span data-testid="cart-badge" className="absolute -top-1 -right-1 bg-secondary-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
                   {itemCount}
                 </span>
               )}
             </Link>
-
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2 text-gray-500 hover:text-primary-600 transition-colors"
-            >
-              {theme === 'dark' ? (
-                <SunIcon className="h-5 w-5" />
-              ) : (
-                <MoonIcon className="h-5 w-5" />
-              )}
-            </button>
 
             {/* Auth Section */}
             {user ? (
               /* User Menu */
               <div ref={userMenuRef} className="relative">
                 <button
+                  data-testid="user-menu"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center space-x-2 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="flex items-center space-x-2 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
                 >
                   {user.profilePicUrl ? (
                     <img
@@ -246,11 +232,11 @@ export default function Navbar() {
                       initial={{ opacity: 0, y: -10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-2 overflow-hidden"
+                      className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-2 overflow-hidden"
                     >
                       {/* User Info */}
-                      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                        <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                      <div className="px-4 py-3 border-b border-gray-200">
+                        <p className="font-semibold text-gray-900 text-sm">
                           {user.displayName}
                         </p>
                         <p className="text-xs text-gray-500 capitalize">{user.role}</p>
@@ -258,29 +244,48 @@ export default function Navbar() {
 
                       {/* Menu Items */}
                       <Link
+                        href="/dashboard"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <TicketIcon className="h-4 w-4 mr-3" />
+                        Dashboard
+                      </Link>
+                      
+                      <Link
                         href="/my-tickets"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <TicketIcon className="h-4 w-4 mr-3" />
                         My Tickets
                       </Link>
 
                       {user.role === 'organizer' && (
-                        <Link
-                          href="/organize"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <ChartBarIcon className="h-4 w-4 mr-3" />
-                          Organizer Dashboard
-                        </Link>
+                        <>
+                          <Link
+                            href="/organize"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <ChartBarIcon className="h-4 w-4 mr-3" />
+                            Organizer Dashboard
+                          </Link>
+                          <Link
+                            href="/organize/scanner"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <QrCodeIcon className="h-4 w-4 mr-3" />
+                            Scanner
+                          </Link>
+                        </>
                       )}
 
-                      <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
+                      <div className="border-t border-gray-200 mt-1 pt-1">
                         <button
                           onClick={handleLogout}
-                          className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                         >
                           <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
                           Log Out
@@ -295,7 +300,7 @@ export default function Navbar() {
               <div className="hidden md:flex items-center space-x-3">
                 <Link
                   href="/login"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 transition-colors"
+                  className="text-sm font-medium text-gray-700 hover:text-primary-600 transition-colors"
                 >
                   Log In
                 </Link>
@@ -312,6 +317,7 @@ export default function Navbar() {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 text-gray-500"
+              data-testid="hamburger-menu"
             >
               {mobileMenuOpen ? (
                 <XMarkIcon className="h-6 w-6" />
@@ -330,30 +336,35 @@ export default function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white dark:bg-gray-9 border-t border-gray-200 dark:border-gray-800 px-4 py-4 space-y-3"
+            className="md:hidden bg-white border-t border-gray-200 px-4 py-4 space-y-3"
           >
             {/* Mobile Search */}
             <input
               type="text"
               placeholder="Search events..."
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none"
             />
 
-            <Link href="/events" className="block py-2 text-gray-700 dark:text-gray-300 font-medium">
+            <Link href="/events" className="block py-2 text-gray-700 font-medium">
               Browse Events
             </Link>
-            <Link href="/favorites" className="block py-2 text-gray-700 dark:text-gray-300 font-medium">
+            <Link href="/favorites" className="block py-2 text-gray-700 font-medium">
               Favorites
             </Link>
             {user ? (
               <>
-                <Link href="/my-tickets" className="block py-2 text-gray-700 dark:text-gray-300 font-medium">
+                <Link href="/my-tickets" className="block py-2 text-gray-700 font-medium">
                   My Tickets
                 </Link>
                 {user.role === 'organizer' && (
-                  <Link href="/organize" className="block py-2 text-gray-700 dark:text-gray-300 font-medium">
-                    Organizer Dashboard
-                  </Link>
+                  <>
+                    <Link href="/organize" className="block py-2 text-gray-700 font-medium">
+                      Organizer Dashboard
+                    </Link>
+                    <Link href="/organize/scanner" className="block py-2 text-gray-700 font-medium">
+                      🔍 Scanner
+                    </Link>
+                  </>
                 )}
                 <button onClick={handleLogout} className="block py-2 text-red-600 font-medium">
                   Log Out

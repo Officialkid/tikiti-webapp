@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { TikitiEvent, TicketType } from '@/types/event';
 import { MinusIcon, PlusIcon, ShoppingCartIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { useCart } from '@/lib/contexts/CartContext';
 
 interface TicketSelectorProps {
   event: TikitiEvent;
@@ -11,7 +14,6 @@ interface TicketSelectorProps {
   quantity: number;
   onSelectTicket: (ticket: TicketType) => void;
   onQuantityChange: (quantity: number) => void;
-  onAddToCart: () => void;
 }
 
 export default function TicketSelector({
@@ -20,12 +22,25 @@ export default function TicketSelector({
   quantity,
   onSelectTicket,
   onQuantityChange,
-  onAddToCart,
 }: TicketSelectorProps) {
   const [addedToCart, setAddedToCart] = useState(false);
+  const [isVirtual, setIsVirtual] = useState(false);
+  const { user } = useAuth();
+  const { addToCart } = useCart();
+  const router = useRouter();
 
   const handleAddToCart = () => {
-    onAddToCart();
+    // Require sign-in before purchasing
+    if (!user) {
+      const currentUrl = window.location.pathname;
+      router.push(`/login?returnTo=${encodeURIComponent(currentUrl)}`);
+      return;
+    }
+    
+    if (!selectedTicket) return;
+    
+    // Use cart context directly
+    addToCart(event, selectedTicket, quantity, isVirtual);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
   };
@@ -34,7 +49,7 @@ export default function TicketSelector({
   const isAvailable = (ticket: TicketType) => getAvailable(ticket) > 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-gray-700" data-testid="ticket-selector">
       <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
         Select Tickets
       </h2>
@@ -49,6 +64,7 @@ export default function TicketSelector({
           return (
             <button
               key={ticket.type}
+              data-testid={`ticket-type-${ticket.type}`}
               onClick={() => canSelect && onSelectTicket(ticket)}
               disabled={!canSelect}
               className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
@@ -137,6 +153,37 @@ export default function TicketSelector({
         </motion.div>
       )}
 
+      {/* Virtual / Physical Toggle */}
+      {selectedTicket && event.hasVirtualTickets && (
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+            Ticket Type
+          </label>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setIsVirtual(false)}
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
+                !isVirtual
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Physical
+            </button>
+            <button
+              onClick={() => setIsVirtual(true)}
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
+                isVirtual
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Virtual
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Total Price */}
       {selectedTicket && (
         <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 mb-6">
@@ -159,6 +206,7 @@ export default function TicketSelector({
 
       {/* Add to Cart Button */}
       <button
+        data-testid="add-to-cart-btn"
         onClick={handleAddToCart}
         disabled={!selectedTicket || addedToCart}
         className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${

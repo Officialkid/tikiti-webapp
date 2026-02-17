@@ -12,8 +12,8 @@ export const registerSchema = z
     phone: z
       .string()
       .regex(
-        /^(?:254|\+254|0)?([71](?:(?:[0-2][0-9])|(?:4[0-1])|(?:5[0-5])|(?:9[0-9]))[0-9]{6})$/,
-        "Invalid Kenyan phone number (format: 0712345678 or 254712345678)"
+        /^(\+?254|0)[17]\d{8}$/,
+        "Invalid Kenyan phone number. Use format: 0712345678 or 254712345678"
       ),
     password: z
       .string()

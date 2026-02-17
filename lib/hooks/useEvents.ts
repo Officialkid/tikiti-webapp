@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { QueryDocumentSnapshot } from 'firebase/firestore';
 import { eventService } from '@/lib/services/eventService';
 import { TikitiEvent, EventFilters } from '@/types/event';
 
@@ -9,7 +10,7 @@ export function useEvents(filters?: EventFilters) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
 
   const fetchEvents = useCallback(async (reset = false) => {
     try {
@@ -19,7 +20,7 @@ export function useEvents(filters?: EventFilters) {
       const result = await eventService.getEvents(
         filters,
         12,
-        reset ? undefined : lastDoc
+        reset ? undefined : lastDoc ?? undefined
       );
 
       if (reset) {
@@ -30,9 +31,8 @@ export function useEvents(filters?: EventFilters) {
 
       setLastDoc(result.lastDoc);
       setHasMore(result.events.length === 12);
-    } catch (err) {
+    } catch {
       setError('Failed to load events. Please try again.');
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -40,7 +40,8 @@ export function useEvents(filters?: EventFilters) {
 
   useEffect(() => {
     fetchEvents(true);
-  }, [JSON.stringify(filters)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   const loadMore = () => fetchEvents(false);
   const refresh = () => fetchEvents(true);
@@ -59,7 +60,7 @@ export function useEvent(eventId: string) {
         setLoading(true);
         const data = await eventService.getEventById(eventId);
         setEvent(data);
-      } catch (err) {
+      } catch {
         setError('Failed to load event.');
       } finally {
         setLoading(false);
