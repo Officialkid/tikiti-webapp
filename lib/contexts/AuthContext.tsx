@@ -1,15 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase/config";
+import { supabase } from "@/lib/supabase/config";
 import type { User, AuthContextType, RegisterData, UserRole } from "@/types/user";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,37 +13,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth) {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadUserData(session.user);
+      }
       setLoading(false);
-      return;
-    }
+    });
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        await setSessionCookie();
-        await loadUserData(firebaseUser.uid);
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await loadUserData(session.user);
       } else {
         setUser(null);
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
-  const loadUserData = async (uid: string) => {
-    if (!db) return;
-
+  const loadUserData = async (authUser: SupabaseUser) => {
     try {
-      const userDoc = await getDoc(doc(db, "users", uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
+      const { data: userData, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", authUser.id)
+        .single();
+
+      if (error) throw error;
+
+      if (userData) {
         setUser({
-          uid,
-          ...userData,
-          createdAt: userData.createdAt?.toDate?.() ?? new Date(),
-          updatedAt: userData.updatedAt?.toDate?.() ?? new Date(),
-        } as User);
+          uid: userData.id,
+          email: userData.email,
+          displayName: userData.full_name || "",
+          phone: userData.phone_number || "",
+          role: userData.role as UserRole,
+          friends: [],
+          trustScore: 50,
+          privacySettings: {
+            showAttendance: true,
+            allowSquadInvites: true,
+            shareLocation: false,
+          },
+          createdAt: new Date(userData.created_at),
+          updatedAt: new Date(userData.updated_at),
+        });
       }
     } catch (error) {
       console.error("Error loading user data:", error);
@@ -57,53 +70,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const setSessionCookie = async () => {
-    if (!auth?.currentUser) return;
-    const token = await auth.currentUser.getIdToken(true);
-    await fetch("/api/auth/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
-  };
-
-  const clearSessionCookie = async () => {
-    await fetch("/api/auth/session", { method: "DELETE" });
-  };
-
   const register = async (data: RegisterData) => {
-    if (!auth || !db) throw new Error("Firebase not initialized");
-
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
-      );
-
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        uid: userCredential.user.uid,
+      // Sign up with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
-        displayName: data.displayName,
-        phone: data.phone,
-        role: data.role,
-        friends: [],
-        trustScore: 50,
-        privacySettings: {
-          showAttendance: true,
-          allowSquadInvites: true,
-          shareLocation: false,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.displayName,
+            phone_number: data.phone,
+            role: data.role,
+          },
         },
-        createdAt: new Date(),
-        updatedAt: new Date(),
       });
 
-      await setSessionCookie();
-      toast.success("Account created successfully!");
-      await loadUserData(userCredential.user.uid);
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // User profile is automatically created by database trigger
+        toast.success("Account created successfully!");
+        
+        // Note: If email confirmation is required, user needs to verify email first
+        if (authData.session) {
+          await loadUserData(authData.user);
+        } else {
+          toast.info("Please check your email to verify your account");
+        }
+      }
     } catch (error: unknown) {
-      const err = error as { code?: string };
-      if (err.code === "auth/email-already-in-use") {
+      const err = error as { message?: string };
+      if (err.message?.includes("already registered")) {
         toast.error("Email already in use");
       } else {
         toast.error("Failed to create account. Please try again.");
@@ -113,24 +110,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    if (!auth) throw new Error("Firebase not initialized");
-
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
-      );
-      await setSessionCookie();
-      toast.success("Welcome back!");
-      await loadUserData(userCredential.user.uid);
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        toast.success("Welcome back!");
+        await loadUserData(data.user);
+      }
     } catch (error: unknown) {
-      const err = error as { code?: string };
-      if (
-        err.code === "auth/user-not-found" ||
-        err.code === "auth/wrong-password" ||
-        err.code === "auth/invalid-credential"
-      ) {
+      const err = error as { message?: string };
+      if (err.message?.includes("Invalid") || err.message?.includes("credentials")) {
         toast.error("Invalid email or password");
       } else {
         toast.error("Failed to login. Please try again.");
@@ -140,11 +134,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    if (!auth) return;
-
     try {
-      await signOut(auth);
-      await clearSessionCookie();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
       setUser(null);
       toast.success("Logged out successfully");
     } catch (error) {
@@ -155,14 +148,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateUserRole = async (role: UserRole) => {
-    if (!user || !db) return;
+    if (!user) return;
 
     try {
-      await setDoc(
-        doc(db, "users", user.uid),
-        { role, updatedAt: new Date() },
-        { merge: true }
-      );
+      const { error } = await supabase
+        .from("users")
+        .update({ role, updated_at: new Date().toISOString() })
+        .eq("id", user.uid);
+
+      if (error) throw error;
+
       setUser({ ...user, role });
       toast.success(`Switched to ${role} mode`);
     } catch (error) {
