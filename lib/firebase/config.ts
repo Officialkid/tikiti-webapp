@@ -1,8 +1,8 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getFunctions } from "firebase/functions";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,3 +25,18 @@ export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
 export const storage = app ? getStorage(app) : null;
 export const functions = app ? getFunctions(app) : null;
+
+// Connect to Firebase Emulator Suite in development
+if (process.env.NEXT_PUBLIC_USE_EMULATOR === 'true' && typeof window !== 'undefined') {
+  if (auth && db && functions) {
+    try {
+      connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+      connectFirestoreEmulator(db, 'localhost', 8080);
+      connectFunctionsEmulator(functions, 'localhost', 5001);
+      console.log('✅ Connected to Firebase Emulator Suite');
+    } catch (e) {
+      // Already connected
+      console.log('ℹ️ Firebase Emulator already connected');
+    }
+  }
+}

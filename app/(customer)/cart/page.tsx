@@ -99,6 +99,7 @@ export default function CartPage() {
       pollRef.current = setInterval(async () => {
         attempts++;
         try {
+          if (!db) throw new Error('Firestore not initialized');
           const snap = await getDoc(doc(db, 'orders', orderId));
           const status = snap.data()?.paymentStatus;
 
@@ -181,6 +182,7 @@ export default function CartPage() {
         pollPaymentStatus(orderId);
       } else if (selectedPayment === 'card' || selectedPayment === 'airtel') {
         // Flutterwave
+        if (!db) throw new Error('Firestore not initialized');
         const txRef = `TIKITI-${orderId}`;
         await updateDoc(doc(db, 'orders', orderId), {
           flutterwaveTxRef: txRef,
