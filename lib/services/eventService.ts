@@ -33,7 +33,7 @@ export const eventService = {
           .eq('id', lastEventId)
           .single();
         
-        if (lastEvent) {
+        if (lastEvent && typeof lastEvent === 'object' && 'start_date' in lastEvent) {
           query = query.gt('start_date', lastEvent.start_date);
         }
       }
