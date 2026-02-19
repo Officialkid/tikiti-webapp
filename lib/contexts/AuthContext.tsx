@@ -6,6 +6,17 @@ import type { User, AuthContextType, RegisterData, UserRole } from "@/types/user
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
+// Type for user data from Supabase database
+interface SupabaseUserData {
+  id: string;
+  email: string;
+  full_name: string | null;
+  phone_number: string | null;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -46,13 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
 
-      if (userData) {
+      if (userData && typeof userData === 'object') {
+        const typedData = userData as unknown as SupabaseUserData;
         setUser({
-          uid: userData.id,
-          email: userData.email,
-          displayName: userData.full_name || "",
-          phone: userData.phone_number || "",
-          role: userData.role as UserRole,
+          uid: typedData.id,
+          email: typedData.email,
+          displayName: typedData.full_name || "",
+          phone: typedData.phone_number || "",
+          role: typedData.role as UserRole,
           friends: [],
           trustScore: 50,
           privacySettings: {
@@ -60,8 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             allowSquadInvites: true,
             shareLocation: false,
           },
-          createdAt: new Date(userData.created_at),
-          updatedAt: new Date(userData.updated_at),
+          createdAt: new Date(typedData.created_at),
+          updatedAt: new Date(typedData.updated_at),
         });
       }
     } catch (error) {
@@ -151,9 +163,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     try {
+      const updateData = {
+        role,
+        updated_at: new Date().toISOString(),
+      };
+      
       const { error } = await supabase
         .from("users")
-        .update({ role, updated_at: new Date().toISOString() })
+        // @ts-expect-error - Supabase generated types may not match runtime schema
+        .update(updateData)
         .eq("id", user.uid);
 
       if (error) throw error;

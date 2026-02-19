@@ -20,7 +20,6 @@
     "@supabase/supabase-js": "^2.96.0",
     "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
-    
     "framer-motion": "^11.11.0",
     "html-to-image": "^1.11.13",
     "jsqr": "^1.4.0",

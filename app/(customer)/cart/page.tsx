@@ -8,8 +8,6 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import Navbar from '@/components/layout/Navbar';
 import { initiateFlutterwavePayment } from '@/lib/payments/flutterwave';
 import dynamic from 'next/dynamic';
@@ -22,7 +20,6 @@ import { PaymentMethod, SupportedCurrency } from '@/types/ticket';
 import { ticketService } from '@/lib/services/ticketService';
 import { formatCurrency, getPaymentMethodsForCurrency } from '@/lib/utils/currency';
 import { toast } from 'sonner';
-import { app, db } from '@/lib/firebase/config';
 
 // All supported payment methods with metadata
 const ALL_PAYMENT_METHODS = {
@@ -89,7 +86,6 @@ export default function CartPage() {
   // ── Poll payment status after STK Push ────────────────────────────
   const pollPaymentStatus = useCallback(
     (orderId: string) => {
-      if (!db) return;
       let attempts = 0;
       const maxAttempts = 20; // 60 seconds max
 
@@ -99,9 +95,8 @@ export default function CartPage() {
       pollRef.current = setInterval(async () => {
         attempts++;
         try {
-          if (!db) throw new Error('Firestore not initialized');
-          const snap = await getDoc(doc(db, 'orders', orderId));
-          const status = snap.data()?.paymentStatus;
+          const order = await ticketService.getOrder(orderId);
+          const status = order?.paymentStatus;
 
           if (status === 'completed') {
             clearInterval(pollRef.current!);
@@ -124,7 +119,7 @@ export default function CartPage() {
         }
       }, 3000);
     },
-    [db, clearCart, router]
+    [clearCart, router]
   );
 
   // Cleanup polling on unmount
@@ -172,21 +167,28 @@ export default function CartPage() {
 
       // 2. Route to payment provider
       if (selectedPayment === 'mpesa') {
-        // M-Pesa STK Push
-        const firebaseFunctions = getFunctions(app!, 'us-central1');
-        const initMpesa = httpsCallable(firebaseFunctions, 'initiateMpesaSTK');
-        await initMpesa({ orderId, phoneNumber, amount: grandTotal });
+        // M-Pesa STK Push - call API route
+        const res = await fetch('/api/mpesa/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, phoneNumber, amount: grandTotal }),
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || 'M-Pesa initiation failed');
+        }
+
         toast.info('📱 Check your phone for M-Pesa prompt', { duration: 10000 });
 
         // Poll for payment confirmation
         pollPaymentStatus(orderId);
       } else if (selectedPayment === 'card' || selectedPayment === 'airtel') {
         // Flutterwave
-        if (!db) throw new Error('Firestore not initialized');
         const txRef = `TIKITI-${orderId}`;
-        await updateDoc(doc(db, 'orders', orderId), {
-          flutterwaveTxRef: txRef,
-        });
+        
+        // TODO: Store flutterwaveTxRef in Supabase orders table if needed
+        // For now, passing it to initiateFlutterwavePayment
 
         const methodMap: Record<string, string> = {
           airtel: 'mobile_money_kenya',

@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { supabase } from '@/lib/supabase/config';
 import { TikitiEvent } from '@/types/event';
 
 interface Props { event: TikitiEvent; }
@@ -11,11 +10,28 @@ export default function LiveCapacityWidget({ event }: Props) {
   const [current, setCurrent] = useState(event.currentCapacity);
 
   useEffect(() => {
-    if (!db) return;
-    const unsub = onSnapshot(doc(db, 'events', event.eventId), (snap) => {
-      if (snap.exists()) setCurrent(snap.data().currentCapacity || 0);
-    });
-    return () => unsub();
+    // Subscribe to realtime updates for this event
+    const channel = supabase
+      .channel(`event-${event.eventId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'events',
+          filter: `id=eq.${event.eventId}`,
+        },
+        (payload) => {
+          if (payload.new && typeof payload.new.current_capacity === 'number') {
+            setCurrent(payload.new.current_capacity);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [event.eventId]);
 
   const pct = Math.round((current / event.venueCapacity) * 100);

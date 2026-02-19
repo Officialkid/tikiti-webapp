@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { functions } from '@/lib/firebase/config';
-import { httpsCallable } from 'firebase/functions';
 
 const BROADCAST_TYPES = [
   { id: 'evacuation', label: '🚨 Evacuation', color: 'red', desc: 'Immediate venue evacuation' },
@@ -29,10 +27,6 @@ export default function EmergencyBroadcast({ eventId, eventTitle, onClose }: Pro
 
   const handleSend = async () => {
     if (!selected) return;
-    if (!functions) {
-      alert('Firebase functions not initialized');
-      return;
-    }
 
     // Validation
     if (selected === 'custom' && !customMessage.trim()) {
@@ -46,13 +40,22 @@ export default function EmergencyBroadcast({ eventId, eventTitle, onClose }: Pro
 
     setSending(true);
     try {
-      const sendBroadcast = httpsCallable(functions, 'sendEmergencyBroadcast');
-      await sendBroadcast({
-        eventId,
-        broadcastType: selected,
-        customMessage: selected === 'custom' ? customMessage : undefined,
-        newDate: selected === 'postponed' ? newDate : undefined,
+      const res = await fetch('/api/emergency-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId,
+          broadcastType: selected,
+          customMessage: selected === 'custom' ? customMessage : undefined,
+          newDate: selected === 'postponed' ? newDate : undefined,
+        }),
       });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Failed to send broadcast');
+      }
 
       alert('✅ Emergency broadcast sent successfully');
       onClose();

@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { supabase } from '@/lib/supabase/config';
 import { motion } from 'framer-motion';
 
 interface Props {
@@ -19,13 +18,27 @@ export default function CapacityBar({
 
   // Subscribe to real-time updates
   useEffect(() => {
-    if (!db) return;
-    const unsub = onSnapshot(doc(db, 'events', eventId), (snap) => {
-      if (snap.exists()) {
-        setCurrent(snap.data().currentCapacity || 0);
-      }
-    });
-    return () => unsub();
+    const channel = supabase
+      .channel(`capacity-${eventId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'events',
+          filter: `id=eq.${eventId}`,
+        },
+        (payload) => {
+          if (payload.new && typeof payload.new.current_capacity === 'number') {
+            setCurrent(payload.new.current_capacity);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [eventId]);
 
   const pct = Math.min((current / total) * 100, 100);

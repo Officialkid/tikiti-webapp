@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { loadPayPalScript } from '@/lib/payments/paypal';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 
 interface Props {
   orderId: string;
@@ -16,7 +15,6 @@ export default function PayPalButton({ orderId, amount, currency, onSuccess, onE
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!;
-  const functionsInstance = getFunctions();
 
   const stableOnSuccess = useCallback(() => onSuccess(), [onSuccess]);
   const stableOnError = useCallback((msg: string) => onError(msg), [onError]);
@@ -35,21 +33,30 @@ export default function PayPalButton({ orderId, amount, currency, onSuccess, onE
         paypal.Buttons({
           style: { layout: 'vertical', color: 'blue', shape: 'pill', label: 'pay' },
 
-          // Step 1: Create PayPal order via Firebase Function
+          // Step 1: Create PayPal order via API route
           createOrder: async () => {
-            const createPayPalOrder = httpsCallable(functionsInstance, 'createPayPalOrder');
-            const result = await createPayPalOrder({ orderId, amount, currency });
-            return (result.data as { paypalOrderId: string }).paypalOrderId;
+            const res = await fetch('/api/paypal/create-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId, amount, currency }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to create order');
+            return data.paypalOrderId;
           },
 
           // Step 2: Capture payment after buyer approves
           onApprove: async (data: { orderID: string }) => {
-            const capturePayPalOrder = httpsCallable(functionsInstance, 'capturePayPalOrder');
-            const result = await capturePayPalOrder({
-              paypalOrderId: data.orderID,
-              tikititOrderId: orderId,
+            const res = await fetch('/api/paypal/capture-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                paypalOrderId: data.orderID,
+                tikititOrderId: orderId,
+              }),
             });
-            if ((result.data as { success: boolean }).success) {
+            const result = await res.json();
+            if (result.success) {
               stableOnSuccess();
             } else {
               stableOnError('Payment capture failed');
@@ -69,7 +76,7 @@ export default function PayPalButton({ orderId, amount, currency, onSuccess, onE
     };
 
     init();
-  }, [orderId, amount, currency, clientId, functionsInstance, stableOnSuccess, stableOnError]);
+  }, [orderId, amount, currency, clientId, stableOnSuccess, stableOnError]);
 
   return (
     <div>

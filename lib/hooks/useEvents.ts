@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { QueryDocumentSnapshot } from 'firebase/firestore';
 import { eventService } from '@/lib/services/eventService';
 import { TikitiEvent, EventFilters } from '@/types/event';
 
@@ -10,7 +9,7 @@ export function useEvents(filters?: EventFilters) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [lastEventId, setLastEventId] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async (reset = false) => {
     try {
@@ -20,7 +19,7 @@ export function useEvents(filters?: EventFilters) {
       const result = await eventService.getEvents(
         filters,
         12,
-        reset ? undefined : lastDoc ?? undefined
+        reset ? undefined : lastEventId ?? undefined
       );
 
       if (reset) {
@@ -29,14 +28,14 @@ export function useEvents(filters?: EventFilters) {
         setEvents((prev: TikitiEvent[]) => [...prev, ...result.events]);
       }
 
-      setLastDoc(result.lastDoc);
+      setLastEventId(result.lastEventId);
       setHasMore(result.events.length === 12);
     } catch {
       setError('Failed to load events. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [filters, lastDoc]);
+  }, [filters, lastEventId]);
 
   useEffect(() => {
     fetchEvents(true);

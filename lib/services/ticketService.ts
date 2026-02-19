@@ -1,8 +1,4 @@
-import {
-  collection, doc, setDoc, getDocs,
-  query, where, orderBy, updateDoc, Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { supabase } from '@/lib/supabase/config';
 import { CartItem, Ticket, SupportedCurrency, PaymentMethod } from '@/types/ticket';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -48,52 +44,54 @@ export const ticketService = {
         });
 
         const ticketDoc = {
-          ticketId,
-          userId,
-          eventId: item.eventId,
-          eventTitle: item.eventTitle,
-          eventImageUrl: item.eventImageUrl,
-          eventDate: Timestamp.fromDate(item.eventDate),
-          eventVenue: item.eventVenue,
-          eventCity: item.eventCity,
-          organizerId: item.organizerId,
-          ticketType: item.ticketType,
-          price: item.pricePerTicket,         // What buyer paid
-          tikitiFee: perTicketFee,            // 5% — for Tikiti accounting
-          organizerPayout,                    // price - fee — what organizer gets
+          id: ticketId,
+          user_id: userId,
+          event_id: item.eventId,
+          order_id: orderId,
+          ticket_type_id: null, // Could be matched from item.ticketType if needed
+          ticket_type: item.ticketType,
+          price: item.pricePerTicket,
+          tikiti_fee: perTicketFee,
+          organizer_payout: organizerPayout,
           currency,
-          qrCodeData,
-          paymentMethod,
-          paymentStatus: 'active',
-          isVirtual: item.isVirtual,
-          streamToken: streamToken || null,
-          checkedIn: false,
-          checkedInAt: null,
-          purchasedAt: Timestamp.now(),
+          qr_code_data: qrCodeData,
+          payment_method: paymentMethod,
+          payment_status: 'active',
+          is_virtual: item.isVirtual,
+          stream_token: streamToken || null,
+          checked_in: false,
+          checked_in_at: null,
+          purchased_at: new Date().toISOString(),
         };
 
-        await setDoc(doc(db!, 'tickets', ticketId), ticketDoc);
+        const { error } = await supabase
+          .from('tickets')
+          .insert(ticketDoc);
+
+        if (error) throw error;
+
         ticketIds.push(ticketId);
       }
     }
 
     // Save order summary
-    await setDoc(doc(db!, 'orders', orderId), {
-      orderId,
-      userId,
-      items,                                  // Keep items for order confirmation display
-      ticketCount: items.reduce((s, i) => s + i.quantity, 0),
-      subtotal,
-      tikitiFee,
-      grandTotal,
-      currency,
-      paymentMethod,
-      phoneNumber: phoneNumber || null,
-      paymentStatus: 'completed',
-      // Sprint 4 will change this to 'pending' until payment webhook fires
-      ticketIds,
-      createdAt: Timestamp.now(),
-    });
+    const { error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        id: orderId,
+        user_id: userId,
+        ticket_count: items.reduce((s, i) => s + i.quantity, 0),
+        subtotal,
+        tikiti_fee: tikitiFee,
+        grand_total: grandTotal,
+        currency,
+        payment_method: paymentMethod,
+        phone_number: phoneNumber || null,
+        payment_status: 'completed',
+        // Sprint 4 will change this to 'pending' until payment webhook fires
+      });
+
+    if (orderError) throw orderError;
 
     return { orderId };
   },
@@ -101,21 +99,49 @@ export const ticketService = {
   // ── GET USER'S TICKETS ─────────────────────────────────────────────
   async getUserTickets(userId: string): Promise<Ticket[]> {
     try {
-      const q = query(
-        collection(db!, 'tickets'),
-        where('userId', '==', userId),
-        orderBy('purchasedAt', 'desc')
-      );
-      const snap = await getDocs(q);
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          ...data,
-          eventDate: data.eventDate.toDate(),
-          purchasedAt: data.purchasedAt.toDate(),
-          checkedInAt: data.checkedInAt?.toDate() || undefined,
-        } as Ticket;
-      });
+      const { data, error } = await supabase
+        .from('tickets')
+        .select(`
+          *,
+          events (
+            id,
+            title,
+            image_url,
+            start_date,
+            venue_name,
+            city,
+            organizer_id
+          )
+        `)
+        .eq('user_id', userId)
+        .order('purchased_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((row: any) => ({
+        ticketId: row.id,
+        userId: row.user_id,
+        eventId: row.event_id,
+        eventTitle: row.events?.title || '',
+        eventImageUrl: row.events?.image_url || '',
+        eventDate: new Date(row.events?.start_date || new Date()),
+        eventVenue: row.events?.venue_name || '',
+        eventCity: row.events?.city || '',
+        organizerId: row.events?.organizer_id || '',
+        ticketType: row.ticket_type,
+        price: row.price,
+        tikitiFee: row.tikiti_fee,
+        organizerPayout: row.organizer_payout,
+        currency: row.currency,
+        qrCodeData: row.qr_code_data,
+        paymentMethod: row.payment_method,
+        paymentStatus: row.payment_status,
+        isVirtual: row.is_virtual,
+        streamToken: row.stream_token,
+        checkedIn: row.checked_in,
+        checkedInAt: row.checked_in_at ? new Date(row.checked_in_at) : undefined,
+        purchasedAt: new Date(row.purchased_at),
+      })) as Ticket[];
     } catch (err) {
       console.error('getUserTickets error:', err);
       throw err;
@@ -125,21 +151,49 @@ export const ticketService = {
   // ── GET TICKETS FOR AN EVENT (organizer view) ──────────────────────
   async getEventTickets(eventId: string): Promise<Ticket[]> {
     try {
-      const q = query(
-        collection(db!, 'tickets'),
-        where('eventId', '==', eventId),
-        orderBy('purchasedAt', 'desc')
-      );
-      const snap = await getDocs(q);
-      return snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          ...data,
-          eventDate: data.eventDate.toDate(),
-          purchasedAt: data.purchasedAt.toDate(),
-          checkedInAt: data.checkedInAt?.toDate() || undefined,
-        } as Ticket;
-      });
+      const { data, error } = await supabase
+        .from('tickets')
+        .select(`
+          *,
+          events (
+            id,
+            title,
+            image_url,
+            start_date,
+            venue_name,
+            city,
+            organizer_id
+          )
+        `)
+        .eq('event_id', eventId)
+        .order('purchased_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((row: any) => ({
+        ticketId: row.id,
+        userId: row.user_id,
+        eventId: row.event_id,
+        eventTitle: row.events?.title || '',
+        eventImageUrl: row.events?.image_url || '',
+        eventDate: new Date(row.events?.start_date || new Date()),
+        eventVenue: row.events?.venue_name || '',
+        eventCity: row.events?.city || '',
+        organizerId: row.events?.organizer_id || '',
+        ticketType: row.ticket_type,
+        price: row.price,
+        tikitiFee: row.tikiti_fee,
+        organizerPayout: row.organizer_payout,
+        currency: row.currency,
+        qrCodeData: row.qr_code_data,
+        paymentMethod: row.payment_method,
+        paymentStatus: row.payment_status,
+        isVirtual: row.is_virtual,
+        streamToken: row.stream_token,
+        checkedIn: row.checked_in,
+        checkedInAt: row.checked_in_at ? new Date(row.checked_in_at) : undefined,
+        purchasedAt: new Date(row.purchased_at),
+      })) as Ticket[];
     } catch (err) {
       console.error('getEventTickets error:', err);
       throw err;
@@ -153,36 +207,38 @@ export const ticketService = {
     ticket?: Partial<Ticket>;
   }> {
     try {
-      const q = query(
-        collection(db!, 'tickets'),
-        where('ticketId', '==', ticketId),
-        where('eventId', '==', eventId)
-      );
-      const snap = await getDocs(q);
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('id', ticketId)
+        .eq('event_id', eventId)
+        .single();
 
-      if (snap.empty) return { success: false, message: '❌ Ticket not found' };
+      if (error || !data) return { success: false, message: '❌ Ticket not found' };
 
-      const ticketDoc = snap.docs[0];
-      const data = ticketDoc.data();
-
-      if (data.checkedIn) {
-        const time = data.checkedInAt?.toDate()?.toLocaleTimeString() || 'earlier';
+      if (data.checked_in) {
+        const time = data.checked_in_at ? new Date(data.checked_in_at).toLocaleTimeString() : 'earlier';
         return { success: false, message: `⚠️ Already checked in at ${time}` };
       }
 
-      if (data.isVirtual) {
+      if (data.is_virtual) {
         return { success: false, message: '❌ Virtual ticket — not valid for entry' };
       }
 
-      if (data.paymentStatus !== 'active') {
-        return { success: false, message: `❌ Ticket is ${data.paymentStatus}` };
+      if (data.payment_status !== 'active') {
+        return { success: false, message: `❌ Ticket is ${data.payment_status}` };
       }
 
       // Mark checked in
-      await updateDoc(ticketDoc.ref, {
-        checkedIn: true,
-        checkedInAt: Timestamp.now(),
-      });
+      const { error: updateError } = await supabase
+        .from('tickets')
+        .update({
+          checked_in: true,
+          checked_in_at: new Date().toISOString(),
+        })
+        .eq('id', ticketId);
+
+      if (updateError) throw updateError;
 
       // Increment venue capacity
       const { eventService } = await import('./eventService');
@@ -190,8 +246,8 @@ export const ticketService = {
 
       return {
         success: true,
-        message: `✅ Valid — ${data.ticketType}`,
-        ticket: { ticketType: data.ticketType, isVirtual: false },
+        message: `✅ Valid — ${data.ticket_type}`,
+        ticket: { ticketType: data.ticket_type, isVirtual: false },
       };
     } catch (err) {
       console.error('checkInTicket error:', err);
@@ -220,18 +276,26 @@ export const ticketService = {
   // ── GET ORDER BY ID ────────────────────────────────────────────────
   async getOrder(orderId: string): Promise<Record<string, unknown> | null> {
     try {
-      const q = query(
-        collection(db!, 'orders'),
-        where('orderId', '==', orderId)
-      );
-      const snap = await getDocs(q);
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
 
-      if (snap.empty) return null;
+      if (error || !data) return null;
 
-      const data = snap.docs[0].data();
       return {
-        ...data,
-        createdAt: data.createdAt.toDate(),
+        orderId: data.id,
+        userId: data.user_id,
+        ticketCount: data.ticket_count,
+        subtotal: data.subtotal,
+        tikitiFee: data.tikiti_fee,
+        grandTotal: data.grand_total,
+        currency: data.currency,
+        paymentMethod: data.payment_method,
+        phoneNumber: data.phone_number,
+        paymentStatus: data.payment_status,
+        createdAt: new Date(data.created_at),
       };
     } catch (err) {
       console.error('getOrder error:', err);
